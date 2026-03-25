@@ -843,13 +843,27 @@ class Trainer(object):
             binary_preds = np.greater(sk_mean_logit_list, best_threshold).astype(int)
             best_acc = sklearn.metrics.accuracy_score(binary_preds, sk_correct_answer_list)
 
+        # Calculate final predictions and metrics at best threshold
+        binary_preds = np.greater(sk_mean_logit_list, best_threshold).astype(int)
+        final_precision = sklearn.metrics.precision_score(sk_correct_answer_list, binary_preds, zero_division=0)
+        final_recall = sklearn.metrics.recall_score(sk_correct_answer_list, binary_preds, zero_division=0)
+        final_f1 = sklearn.metrics.f1_score(sk_correct_answer_list, binary_preds, zero_division=0)
 
-        logger.info("========== SKLEARN METRICS =============")
         logger.info("Best Threshold === {}".format(best_threshold))
-        logger.info("Acc === {}".format(best_acc))
-        logger.info("AUC_PR === {}".format(auc_pr))
-        logger.info("AUC_ROC === {}".format(auc_roc))
-        logger.info("========================================")
+        
+        if self.is_use_fixed_false_facts:
+            # Classification metrics for Fact Prediction task
+            logger.info("Classification metrics: Accuracy: {:.4f}, Precision: {:.4f}, Recall: {:.4f}, F1: {:.4f}, PR AUC: {:.4f}, ROC AUC: {:.4f}".format(
+                best_acc, final_precision, final_recall, final_f1, auc_pr, auc_roc))
+        else:
+            # Ranking metrics for Link Prediction task
+            mr_normalized = mean_rank / total_examples
+            mrr_normalized = mean_reciprocal_rank / total_examples
+            hit1_normalized = hitsAt1 / total_examples
+            hit3_normalized = hitsAt3 / total_examples
+            hit10_normalized = hitsAt10 / total_examples
+            logger.info("Ranking metrics: MR: {:.4f}, MRR: {:.4f}, Hit@1: {:.4f}, Hit@3: {:.4f}, Hit@10: {:.4f}".format(
+                mr_normalized, mrr_normalized, hit1_normalized, hit3_normalized, hit10_normalized))
 
         if self.is_use_fixed_false_facts:
             if save_model or best_acc > self.best_metric:
@@ -860,13 +874,6 @@ class Trainer(object):
             if save_model or mean_reciprocal_rank > self.best_metric:
                 self.save_path = self.model_saver.save(sess, self.model_dir + "model" + '.ckpt')
             self.best_metric = mean_reciprocal_rank if mean_reciprocal_rank > self.best_metric else self.best_metric
-
-        logger.info("Hits@20 === {}".format(hitsAt20 / total_examples))
-        logger.info("Hits@10 === {}".format(hitsAt10 / total_examples))
-        logger.info("Hits@3 === {}".format(hitsAt3 / total_examples))
-        logger.info("Hits@1 === {}".format(hitsAt1 / total_examples))
-        logger.info("MRR === {}".format(mean_reciprocal_rank / total_examples))
-        logger.info("MR === {}".format(mean_rank / total_examples))
 
         return best_threshold
 
